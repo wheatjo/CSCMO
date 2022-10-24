@@ -63,7 +63,6 @@ class DisplayMW4(MW4):
             z[np.logical_and(feasible, x + y >= 1)] = 0
             return x, y, z
 
-
         elif self.n_obj == 3:
             a = np.linspace(0, 1, 10)[np.newaxis, :].T
             x = a * a.T
@@ -280,7 +279,7 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
     from matplotlib.ticker import LinearLocator
-    A = DisplayMW7()
+    A = DisplayMW14()
     X, Y, Z = A.get_pf_region()
 
     if A.n_obj == 3:
