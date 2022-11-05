@@ -16,13 +16,14 @@ from pymoo.core.duplicate import DefaultDuplicateElimination
 from pymoo.optimize import minimize
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from utils.SelectCand import select_exploit_explore_ind_simple, pull_stage_search
+from surrogate_problem.surrogate_problem import SurrogateProblem
 
 
 class CCMO(GeneticAlgorithm):
     # problem is surrogate model
     def __init__(self, pop_o_init, pop_size, n_offspring, **kwargs):
         super(CCMO, self).__init__(pop_size=pop_size, sampling=pop_o_init, n_offspring=n_offspring,
-                                   output=MultiObjectiveOutput(), **kwargs)
+                                   output=MultiObjectiveOutput(), advance_after_initial_infill=True,**kwargs)
 
         self.pop_h = None
         self.survival = RankAndCrowdingSurvival()
@@ -50,6 +51,8 @@ class CCMO(GeneticAlgorithm):
 
     def _initialize_advance(self, infills=None, **kwargs):
         # self.pop_h = Population.new(X=self.pop.get('X'), F=self.pop.get('F'))
+        if self.advance_after_initial_infill:
+            self.pop = self.survival.do(self.problem, infills)
         self.pop_h = copy.deepcopy(self.pop)
     # def _setup(self, problem, **kwargs):
 
@@ -111,20 +114,22 @@ def create_infills(pop_o_exploit, pop_o_explore, pop_h_exploit, pop_h_explore):
 
 class CSCMO(GeneticAlgorithm):
 
-    def __init__(self, pop_o_init, pop_size, **kwargs):
-        super().__init__(pop_size=pop_size, sampling=pop_o_init, output=MultiObjectiveOutput(), **kwargs)
+    def __init__(self, pop_o_init, pop_size, max_FE, **kwargs):
+        super().__init__(pop_size=pop_size, sampling=pop_o_init, output=MultiObjectiveOutput(),
+                         advance_after_initial_infill=True,
+                         **kwargs)
         # self.problem = problem_o
         # self.problem_help = problem_h
         self.epsilon_k = 0
         self.epsilon_0 = 0
         self.r_k = 0
         self.alpha = 0.95
-        self.tao = 0.05
+        self.tao = 0.0005
         self.cp = 2
         self.Tc = 1
-        self.last_gen = 3
+        self.last_gen = 10
         self.change_threshold = 1e-3
-        self.max_FE = 500
+        self.max_FE = max_FE
         self.Tc = math.ceil(0.9 * math.ceil(self.max_FE / self.pop_size))
         self.push_stage = True
         self.ideal_points = [np.array([]) for i in range(self.last_gen)]
@@ -191,23 +196,23 @@ class CSCMO(GeneticAlgorithm):
         if self.push_stage:
             pop_init_ccmo = DefaultDuplicateElimination().do(Population.merge(self.pop, self.pop_h))
             push_opt_alg = CCMO(pop_init_ccmo, self.pop_size, self.pop_size)
-            res = minimize(self.problem, push_opt_alg, ('n_gen', 50))
+            res = minimize(self.surrogate_problem, push_opt_alg, ('n_gen', 50))
             pop_o_cand, pop_h_cand = res.algorithm.opt, res.algorithm.opt
             if pop_o_cand.size < self.n_exploit:
-                pop_o_cand = self.survival_o.do(self.problem, res.algorithm.pop, n_survive=self.n_exploit)
+                pop_o_cand = self.survival_o.do(self.surrogate_problem, res.algorithm.pop, n_survive=self.n_exploit)
 
             if pop_h_cand.size < self.n_exploit:
-                pop_h_cand = self.survival_help.do(self.problem, res.algorithm.pop_h, n_survive=self.n_exploit)
+                pop_h_cand = self.survival_help.do(self.surrogate_problem, res.algorithm.pop_h, n_survive=self.n_exploit)
 
             pop_o_exploit, pop_o_explore = select_exploit_explore_ind_simple(pop_o_cand, archive=self.archive_o,
                                             n_exploit=self.n_exploit, n_explore=self.n_explore,
                                             mating=push_opt_alg.mating_o,
-                                            problem=self.problem, help_flag=False, alg=push_opt_alg)
+                                            problem=self.surrogate_problem, help_flag=False, alg=push_opt_alg)
 
             pop_h_exploit, pop_h_explore = select_exploit_explore_ind_simple(pop_h_cand, archive=self.archive_h,
                                             n_exploit=self.n_exploit, n_explore=self.n_explore,
                                             mating=push_opt_alg.mating_o,
-                                            problem=self.problem, help_flag=True, alg=push_opt_alg)
+                                            problem=self.surrogate_problem, help_flag=True, alg=push_opt_alg)
 
         # Pull search stage
         else:
@@ -216,31 +221,34 @@ class CSCMO(GeneticAlgorithm):
                                             epsilon_cv=self.epsilon_k)
 
             # !!! warn: epsilon adaptive change, the function have not add
-            res = minimize(self.problem, pull_opt_alg, ('n_gen', 50))
+            res = minimize(self.surrogate_problem, pull_opt_alg, ('n_gen', 50))
             pop_o_cand, pop_h_cand = res.algorithm.opt, res.algorithm.opt
             if pop_o_cand.size < self.n_exploit:
-                pop_o_cand = self.survival_o.do(self.problem, res.algorithm.pop, n_survive=self.n_exploit)
+                pop_o_cand = self.survival_o.do(self.surrogate_problem, res.algorithm.pop, n_survive=self.n_exploit)
 
             if pop_h_cand.size < self.n_exploit:
-                pop_h_cand = self.survival_o.do(self.problem, res.algorithm.pop_h, n_survive=self.n_exploit)
+                pop_h_cand = self.survival_o.do(self.surrogate_problem, res.algorithm.pop_h, n_survive=self.n_exploit)
 
             pop_o_exploit, pop_o_explore = select_exploit_explore_ind_simple(pop_o_cand, archive=self.archive_o,
                                             n_exploit=self.n_exploit, n_explore=self.n_explore, mating=pull_opt_alg.mating_o,
-                                            problem=self.problem, help_flag=False, alg=pull_opt_alg)
+                                            problem=self.surrogate_problem, help_flag=False, alg=pull_opt_alg)
 
             pop_h_exploit, pop_h_explore = pull_stage_search(pop_h_cand, archive=self.archive_h,
                                             n_exploit=self.n_exploit, n_explore=self.n_explore, mating=pull_opt_alg.mating_o,
-                                            problem=self.problem, help_flag=True, alg=pull_opt_alg)
+                                            problem=self.surrogate_problem, help_flag=True, alg=pull_opt_alg)
 
         off_infills = create_infills(pop_o_exploit, pop_o_explore, pop_h_exploit, pop_h_explore)
         return off_infills
 
     def _initialize_advance(self, infills=None, **kwargs):
+        if self.advance_after_initial_infill:
+            self.pop = self.survival_o.do(self.problem, infills)
         self.pop_h = self.pop
         self.archive_o = infills
         self.archive_h = copy.deepcopy(self.archive_o)
         self.archive_o.set('archive', 'origin')
         self.archive_h.set('archive', 'help')
+        self.surrogate_problem.fit(self.archive_o)
 
     def _advance(self, infills=None, **kwargs):
         self.archive_o = Population.merge(self.archive_o, infills)
@@ -249,6 +257,12 @@ class CSCMO(GeneticAlgorithm):
         self.pop_h = Population.merge(self.pop_h, infills[infills.get('archive') == 'help'])
         self.pop = self.survival_o.do(self.problem, self.pop, n_survive=self.pop_size)
         self.pop_h = self.survival_help.do(self.problem, self.pop_h, n_survive=self.pop_size)
+        self.surrogate_problem.fit(self.archive_o)
+
+    def _setup(self, problem, **kwargs):
+        self.surrogate_problem = SurrogateProblem(self.problem)
+        # self.surrogate_problem.fit(self.archive_o)
+
 
     def surrogate_optimize_dual_pop(self):
         pass

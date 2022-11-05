@@ -4,14 +4,16 @@ from pymoo.operators.crossover.pcx import PCX
 
 from pymoo.optimize import minimize
 from pymoo.visualization.scatter import Scatter
+from DisplayProblem.displayctp import DisplayCTP1
+from DisplayProblem.displaymw import DisplayMW1
 
-problem = get_problem("mw9")
+problem = DisplayMW1()
 
 algorithm = NSGA2(pop_size=200)
 
 res = minimize(problem,
                algorithm,
-               ('n_eval', 79600),
+               ('n_gen', 100),
                seed=1,
                verbose=True)
 

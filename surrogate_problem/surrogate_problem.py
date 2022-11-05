@@ -2,7 +2,7 @@ from pymoo.core.problem import Problem
 from pymoo.core.population import Population
 import numpy as np
 from scipy.interpolate import RBFInterpolator
-
+from pymoo.core.individual import calc_cv
 
 # suppose surrogate problem just for expensive object and cheap constraint
 # only build surrogate model for object function
@@ -44,5 +44,6 @@ class SurrogateProblem(Problem):
             predict[:, i] = predict_target.squeeze()
 
         out['F'] = predict
-        constraints_value = self._problem.evaluate(x, return_values_of=['G'])
-        out['G'] = constraints_value
+        res = self._problem.evaluate(x, return_as_dictionary=True)
+        out['G'] = res.get('G')
+        out['H'] = res.get('H')

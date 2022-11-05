@@ -15,3 +15,23 @@ class MinProblemCV(Problem):
         cv = calc_cv(G=cons.get('G'), H=cons.get('H'))
         out['F'] = cv
 
+
+class ProblemIgnoreConstraint(Problem):
+
+    def __init__(self, origin_problem):
+        super().__init__(n_var=origin_problem.n_var, n_obj=origin_problem.n_obj,
+                         n_ieq_constr=0, n_eq_constr=0,
+                         xl=origin_problem.xl, xu=origin_problem.xu)
+
+        self.origin_problem = origin_problem
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        obj_value = self.origin_problem.evaluate(x, return_values_of=['F'])
+        out['F'] = obj_value
+
+    def _calc_pareto_front(self, *args, **kwargs):
+        pf = self.origin_problem.pareto_front()
+        return pf
+
+    def get_pf_region(self):
+        return self.origin_problem.get_pf_region()

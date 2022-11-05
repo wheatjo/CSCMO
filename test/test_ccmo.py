@@ -7,9 +7,10 @@ from pymoo.termination import get_termination
 from utils.visualization import visual_process_dual_pop
 from DisplayProblem.displaymw import *
 from surrogate_problem.surrogate_problem import SurrogateProblem
+from DisplayProblem.displayctp import DisplayCTP1
 
-problem_name = 'mw3'
-problem = DisplayMW3()
+problem_name = 'ctp1'
+problem = DisplayCTP1()
 
 pop_init = LatinHypercubeSampling().do(problem, 200)
 evaluator = Evaluator()
@@ -21,5 +22,5 @@ algorithm = CCMO(pop_o_init=pop_init, pop_size=200, n_offspring=200)
 
 res = minimize(problem, algorithm, ('n_gen', 100), seed=1, verbose=True, save_history=True)
 
-visual_process_dual_pop(res.history, problem, problem_name+'ccmo-mw3', "G:/code/MyProject/CSCMO/visual_result")
+# visual_process_dual_pop(res.history, problem_surr, problem_name+'ccmo-mw3', "G:/code/MyProject/CSCMO/visual_result")
 # print(res.pop.get('F'))

@@ -279,7 +279,7 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
     from matplotlib.ticker import LinearLocator
-    A = DisplayMW14()
+    A = DisplayMW1()
     X, Y, Z = A.get_pf_region()
 
     if A.n_obj == 3:
