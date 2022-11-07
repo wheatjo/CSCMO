@@ -10,10 +10,12 @@ import numpy as np
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.core.individual import calc_cv
 from pymoo.algorithms.soo.nonconvex.ga_niching import NicheGA
-from utils.help_problem import MinProblemCV
+from utils.help_problem import MinProblemCV, FindCvEdge
 from pymoo.optimize import minimize
 from pymoo.core.evaluator import Evaluator
 from utils.survival import RankAndCrowdingSurvivalIgnoreConstraint
+from algorithm.multimodal import TabuCV
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
 def cluster_and_choose(opt: Population, n_cluster):
 
@@ -132,3 +134,48 @@ def pull_stage_search(pop: Population, archive: Population,
                                                                      problem, help_flag=help_flag, alg=alg)
 
     return pop_h_exploit, pop_h_explore
+
+
+def pull_stage_explore(pop: Population, problem: Problem, n_explore, edge_epsilon):
+
+    cv_edge_problem = FindCvEdge(problem, edge_epsilon)
+    cv_edge_opt_pop = Population.new(X=pop.get('X'))
+    multi_modal_cv_alg = TabuCV(pop_size=n_explore, n_offsprings=n_explore, sampling=cv_edge_opt_pop)
+    res = minimize(cv_edge_problem, multi_modal_cv_alg, ('n_gen', 100), verbose=True)
+    res_pop = Population.new(X=res.pop.get('X'))
+    Evaluator().eval(problem, res_pop)
+    res_pop_feasible = res_pop[res_pop.get('feasible')[:, 0]]
+    res_pop_feasible = RankAndCrowdingSurvivalIgnoreConstraint().do(problem, res_pop_feasible)
+    fronts = NonDominatedSorting().do(res_pop_feasible.get('F'), n_stop_if_ranked=len(res_pop_feasible))
+
+    if len(res_pop_feasible) < n_explore:
+        pop_h_explore = res_pop_feasible
+        return pop_h_explore
+
+    else:
+        index = np.ones(len(res_pop_feasible)) > 0
+        index[fronts[-1]] = False
+        res_cand = res_pop_feasible[index]
+        cand = res_cand[cluster_and_choose(res_cand, n_explore)]
+        return cand
+
+
+if __name__ == '__main__':
+    from pymoo.operators.sampling.lhs import LatinHypercubeSampling
+    from pymoo.problems import get_problem
+    from visualization import display_result
+    from DisplayProblem.displayctp import *
+    # problem = get_problem('ctp4', n_var=10)
+    problem = DisplayCTP4(n_var=10)
+    pop = LatinHypercubeSampling().do(problem, 200)
+    sel = pull_stage_explore(pop, problem, 1000, 0.1)
+
+    print(len(sel))
+    if len(sel) == 0:
+        print('no find')
+    else:
+        display_result(problem, sel.get('F'))
+
+
+
+

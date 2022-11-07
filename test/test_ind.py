@@ -26,9 +26,9 @@ pop_init_copy.set('CV', CV_mat)
 print((pop_init.get('feasible')))
 print((pop_init_copy.get('feasible')))
 
-pop_init.set('archive', 'help')
-print(pop_init.get('archive') == 'help')
-pop_init[0].set('evaluated', set())
-print(len(pop_init[0].evaluated))
+# pop_init.set('archive', 'help')
+# print(pop_init.get('archive') == 'help')
+# pop_init[0].set('evaluated', set())
+# print(len(pop_init[0].evaluated))
 
 

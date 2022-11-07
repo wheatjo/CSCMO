@@ -5,9 +5,9 @@ from pymoo.operators.crossover.pcx import PCX
 from pymoo.optimize import minimize
 from pymoo.visualization.scatter import Scatter
 from DisplayProblem.displayctp import DisplayCTP1
-from DisplayProblem.displaymw import DisplayMW1
+from DisplayProblem.displaymw import *
 
-problem = DisplayMW1()
+problem = DisplayMW2()
 
 algorithm = NSGA2(pop_size=200)
 

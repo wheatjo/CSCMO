@@ -15,8 +15,10 @@ import math
 from pymoo.core.duplicate import DefaultDuplicateElimination
 from pymoo.optimize import minimize
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
-from utils.SelectCand import select_exploit_explore_ind_simple, pull_stage_search
+from utils.SelectCand import select_exploit_explore_ind_simple, pull_stage_search, pull_stage_explore
 from surrogate_problem.surrogate_problem import SurrogateProblem
+from pymoo.algorithms.soo.nonconvex.de import Variant
+from pymoo.operators.control import NoParameterControl
 
 
 class CCMO(GeneticAlgorithm):
@@ -35,6 +37,7 @@ class CCMO(GeneticAlgorithm):
                                eliminate_duplicates=self.eliminate_duplicates,
                                n_max_iterations=100)
         # mating_h
+        self.mating_h = Variant(selection='rand', n_diffs=1, crossover='bin', control=NoParameterControl)
         self.termination = DefaultMultiObjectiveTermination()
         self.tournament_type = 'comp_by_dom_and_crowding'
 
@@ -76,10 +79,12 @@ class CoStrategySearch(GeneticAlgorithm):
         self.termination = DefaultMultiObjectiveTermination()
         self.tournament_type = 'comp_by_dom_and_crowding'
         self.eps_cv = epsilon_cv
+        self.mating_h = Variant(selection='rand', n_diffs=1, crossover='bin', control=NoParameterControl)
 
     def _infill(self):
         off_o = self.mating_o.do(problem=self.problem, pop=self.pop, n_offsprings=self.n_offsprings, algorithm=self)
         off_h = self.mating_o.do(problem=self.problem, pop=self.pop_h, n_offsprings=self.n_offsprings, algorithm=self)
+
         off_o_copy = copy.deepcopy(off_o)
         off_h_copy = copy.deepcopy(off_h)
         self.pop = Population.merge(self.pop, off_o_copy, off_h_copy)
@@ -115,7 +120,7 @@ def create_infills(pop_o_exploit, pop_o_explore, pop_h_exploit, pop_h_explore):
 class CSCMO(GeneticAlgorithm):
 
     def __init__(self, pop_o_init, pop_size, max_FE, **kwargs):
-        super().__init__(pop_size=pop_size, sampling=pop_o_init, output=MultiObjectiveOutput(),
+        super().__init__(pop_size=pop_size, sampling=pop_o_init,
                          advance_after_initial_infill=True,
                          **kwargs)
         # self.problem = problem_o
@@ -127,7 +132,7 @@ class CSCMO(GeneticAlgorithm):
         self.tao = 0.0005
         self.cp = 2
         self.Tc = 1
-        self.last_gen = 10
+        self.last_gen = 4
         self.change_threshold = 1e-3
         self.max_FE = max_FE
         self.Tc = math.ceil(0.9 * math.ceil(self.max_FE / self.pop_size))
@@ -196,7 +201,7 @@ class CSCMO(GeneticAlgorithm):
         if self.push_stage:
             pop_init_ccmo = DefaultDuplicateElimination().do(Population.merge(self.pop, self.pop_h))
             push_opt_alg = CCMO(pop_init_ccmo, self.pop_size, self.pop_size)
-            res = minimize(self.surrogate_problem, push_opt_alg, ('n_gen', 50))
+            res = minimize(self.surrogate_problem, push_opt_alg, ('n_gen', 100))
             pop_o_cand, pop_h_cand = res.algorithm.opt, res.algorithm.opt
             if pop_o_cand.size < self.n_exploit:
                 pop_o_cand = self.survival_o.do(self.surrogate_problem, res.algorithm.pop, n_survive=self.n_exploit)
@@ -221,7 +226,7 @@ class CSCMO(GeneticAlgorithm):
                                             epsilon_cv=self.epsilon_k)
 
             # !!! warn: epsilon adaptive change, the function have not add
-            res = minimize(self.surrogate_problem, pull_opt_alg, ('n_gen', 50))
+            res = minimize(self.surrogate_problem, pull_opt_alg, ('n_gen', 100))
             pop_o_cand, pop_h_cand = res.algorithm.opt, res.algorithm.opt
             if pop_o_cand.size < self.n_exploit:
                 pop_o_cand = self.survival_o.do(self.surrogate_problem, res.algorithm.pop, n_survive=self.n_exploit)
@@ -236,6 +241,7 @@ class CSCMO(GeneticAlgorithm):
             pop_h_exploit, pop_h_explore = pull_stage_search(pop_h_cand, archive=self.archive_h,
                                             n_exploit=self.n_exploit, n_explore=self.n_explore, mating=pull_opt_alg.mating_o,
                                             problem=self.surrogate_problem, help_flag=True, alg=pull_opt_alg)
+            # pop_h_exploit, pop_h_explore = pull_stage_explore(res.pop, self.surrogate_problem, self.n_explore+self.n_exploit)
 
         off_infills = create_infills(pop_o_exploit, pop_o_explore, pop_h_exploit, pop_h_explore)
         return off_infills

@@ -17,7 +17,7 @@ import pickle
 
 dir_mytest = os.path.dirname(os.path.abspath(__file__))
 
-problem_name = 'ctp4'
+problem_name = 'mw1'
 f = open(os.path.join(dir_mytest, 'pickle_file', 'cscmo_' + problem_name +'_data.pickle'), 'rb')
 res = pickle.load(f)
 save_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'visual_result')
