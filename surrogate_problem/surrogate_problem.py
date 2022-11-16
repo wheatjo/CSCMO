@@ -3,6 +3,8 @@ from pymoo.core.population import Population
 import numpy as np
 from scipy.interpolate import RBFInterpolator
 from pymoo.core.individual import calc_cv
+from surrogate.models.rbf import RBF
+from surrogate.selection import ModelSelection
 
 # suppose surrogate problem just for expensive object and cheap constraint
 # only build surrogate model for object function
@@ -21,26 +23,33 @@ class SurrogateProblem(Problem):
     def fit(self, archive: Population) -> None:
         self.surrogate = []
 
-        fit_data_pop = Population.new(X=archive.get('X'), F=archive.get('F'))
-        X = fit_data_pop.get('X')
-        x_unique_index = np.unique(X, return_index=True, axis=0)[1]
-        fit_data_pop_unique = fit_data_pop[x_unique_index]
-        # print(f"X shape:{len(fit_data_pop_unique)}")
-        # print(f"objs shape:{len(fit_data_pop_unique)}")
-        X = fit_data_pop_unique.get('X')
-        objs = fit_data_pop_unique.get('F')
+        # fit_data_pop = Population.new(X=archive.get('X'), F=archive.get('F'))
+        # X = fit_data_pop.get('X')
+        # x_unique_index = np.unique(X, return_index=True, axis=0)[1]
+        # fit_data_pop_unique = fit_data_pop[x_unique_index]
+        # # print(f"X shape:{len(fit_data_pop_unique)}")
+        # # print(f"objs shape:{len(fit_data_pop_unique)}")
+        # X = fit_data_pop_unique.get('X')
+        # objs = fit_data_pop_unique.get('F')
         # X, objs, constrains shape should equal 2
-        for i in range(self.n_obj):
+        # for i in range(self.n_obj):
+        #
+        #     target = RBFInterpolator(X, objs[:, i][:, np.newaxis])
+        #     # target = RBFInterpolator(X, objs[:, i])
+        #     self.surrogate.append(target)
+        proto = RBF
+        X, F = archive.get('X'), archive.get('F')
+        for k in range(self.n_obj):
+            model = ModelSelection(proto).do(X, F[:, k])
+            model.fit(X, F[:, k])
+            self.surrogate.append(model)
 
-            target = RBFInterpolator(X, objs[:, i][:, np.newaxis])
-            # target = RBFInterpolator(X, objs[:, i])
-            self.surrogate.append(target)
 
     def _evaluate(self, x, out, *args, **kwargs):
         n = len(x)
         predict = np.full((n, self.n_obj), np.nan, dtype=float)
         for i in range(self.n_obj):
-            predict_target = self.surrogate[i](x)
+            predict_target = self.surrogate[i].predict(x)
             predict[:, i] = predict_target.squeeze()
 
         out['F'] = predict

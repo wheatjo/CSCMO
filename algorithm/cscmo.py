@@ -19,90 +19,9 @@ from utils.SelectCand import select_exploit_explore_ind_simple, pull_stage_searc
 from surrogate_problem.surrogate_problem import SurrogateProblem
 from pymoo.algorithms.soo.nonconvex.de import Variant
 from pymoo.operators.control import NoParameterControl
-
-
-class CCMO(GeneticAlgorithm):
-    # problem is surrogate model
-    def __init__(self, pop_o_init, pop_size, n_offspring, **kwargs):
-        super(CCMO, self).__init__(pop_size=pop_size, sampling=pop_o_init, n_offspring=n_offspring,
-                                   output=MultiObjectiveOutput(), advance_after_initial_infill=True,**kwargs)
-
-        self.pop_h = None
-        self.survival = RankAndCrowdingSurvival()
-        self.survival_help = RankAndCrowdingSurvivalIgnoreConstraint()
-        self.mating_o = Mating(selection=TournamentSelection(func_comp=binary_tournament),
-                               crossover=SBX(eta=15, prob=0.9),
-                               mutation=PM(eta=20),
-                               repair=self.repair,
-                               eliminate_duplicates=self.eliminate_duplicates,
-                               n_max_iterations=100)
-        # mating_h
-        self.mating_h = Variant(selection='rand', n_diffs=1, crossover='bin', control=NoParameterControl)
-        self.termination = DefaultMultiObjectiveTermination()
-        self.tournament_type = 'comp_by_dom_and_crowding'
-
-    def _infill(self):
-        off_o = self.mating_o.do(problem=self.problem, pop=self.pop, n_offsprings=self.n_offsprings, algorithm=self)
-        off_h = self.mating_o.do(problem=self.problem, pop=self.pop_h, n_offsprings=self.n_offsprings, algorithm=self)
-        self.pop = Population.merge(self.pop, off_o, off_h)
-        self.pop_h = Population.merge(self.pop_h, off_o, off_h)
-        self.evaluator.eval(self.problem, self.pop)
-        self.evaluator.eval(self.problem, self.pop_h)
-
-        self.pop = self.survival.do(problem=self.problem, pop=self.pop, n_survive=self.pop_size)
-        self.pop_h = self.survival_help.do(problem=self.problem, pop=self.pop_h, n_survive=self.pop_size)
-
-    def _initialize_advance(self, infills=None, **kwargs):
-        # self.pop_h = Population.new(X=self.pop.get('X'), F=self.pop.get('F'))
-        if self.advance_after_initial_infill:
-            self.pop = self.survival.do(self.problem, infills)
-        self.pop_h = copy.deepcopy(self.pop)
-    # def _setup(self, problem, **kwargs):
-
-
-class CoStrategySearch(GeneticAlgorithm):
-
-    def __init__(self, pop_o_init, pop_size, n_offspring, epsilon_cv, **kwargs):
-        super(CoStrategySearch, self).__init__(pop_size=pop_size, sampling=pop_o_init, n_offspring=n_offspring,
-                                               output=MultiObjectiveOutput(), **kwargs)
-
-        self.pop_h = None
-        self.survival = RankAndCrowdingSurvival()
-        self.mating_o = Mating(selection=TournamentSelection(func_comp=binary_tournament),
-                               crossover=SBX(eta=15, prob=0.9),
-                               mutation=PM(eta=20),
-                               repair=self.repair,
-                               eliminate_duplicates=self.eliminate_duplicates,
-                               n_max_iterations=100)
-        # mating_h
-        self.survival_help = RankAndCrowdingSurvival()
-        self.termination = DefaultMultiObjectiveTermination()
-        self.tournament_type = 'comp_by_dom_and_crowding'
-        self.eps_cv = epsilon_cv
-        self.mating_h = Variant(selection='rand', n_diffs=1, crossover='bin', control=NoParameterControl)
-
-    def _infill(self):
-        off_o = self.mating_o.do(problem=self.problem, pop=self.pop, n_offsprings=self.n_offsprings, algorithm=self)
-        off_h = self.mating_o.do(problem=self.problem, pop=self.pop_h, n_offsprings=self.n_offsprings, algorithm=self)
-
-        off_o_copy = copy.deepcopy(off_o)
-        off_h_copy = copy.deepcopy(off_h)
-        self.pop = Population.merge(self.pop, off_o_copy, off_h_copy)
-        self.pop_h = Population.merge(self.pop_h, off_o, off_h)
-        self.evaluator.eval(self.problem, self.pop)
-        self.evaluator.eval(self.problem, self.pop_h)
-
-        cv_mat = self.pop_h.get('CV')
-        cv_mat = cv_mat - self.eps_cv
-        self.pop_h.set('CV', np.maximum(0, cv_mat))
-        # print(f"pop_fes: \n {np.where(self.pop.get('feasible'))[0].size}")
-        # print(f"pop_h_fes: \n {np.where(self.pop_h.get('feasible'))[0].size}")
-        self.pop = self.survival.do(problem=self.problem, pop=self.pop, n_survive=self.pop_size)
-        self.pop_h = self.survival_help.do(problem=self.problem, pop=self.pop_h, n_survive=self.pop_size)
-
-    def _initialize_advance(self, infills=None, **kwargs):
-        # self.pop_h = Population.new(X=self.pop.get('X'), F=self.pop.get('F'))
-        self.pop_h = copy.deepcopy(self.pop)
+from utils.selection import BiCoSelection
+from push_search import CCMO
+from pull_search import CoStrategySearch
 
 
 def create_infills(pop_o_exploit, pop_o_explore, pop_h_exploit, pop_h_explore):
@@ -181,28 +100,31 @@ class CSCMO(GeneticAlgorithm):
 
     def _infill(self):
 
-        rf_pop_h = (np.where(self.pop_h.get('feasible'))[0].size / self.pop_h.size)
-
-        if self.push_stage:
-            self.update_ideal_nadir()
-
-        if self.n_iter > self.last_gen and self.push_stage:
-            self.max_change_pop_h = self.calc_max_change()
-
-        if self.max_change_pop_h <= self.change_threshold and self.push_stage:
-            self.push_stage = False
-            self.epsilon_0 = np.max(self.pop_h.get('CV'))
-            self.epsilon_k = self.epsilon_0
-
-        # !!! should not use gen, should use FE number ? change_threshold should modify !!!
-        if self.push_stage is False:
-            self.epsilon_k = self.update_epsilon(self.epsilon_k, self.epsilon_0, rf_pop_h, self.n_iter)
+        # rf_pop_h = (np.where(self.pop_h.get('feasible'))[0].size / self.pop_h.size)
+        #
+        # if self.push_stage:
+        #     self.update_ideal_nadir()
+        #
+        # if self.n_iter > self.last_gen and self.push_stage:
+        #     self.max_change_pop_h = self.calc_max_change()
+        #
+        # if self.max_change_pop_h <= self.change_threshold and self.push_stage:
+        #     self.push_stage = False
+        #     self.epsilon_0 = np.max(self.pop_h.get('CV'))
+        #     self.epsilon_k = self.epsilon_0
+        #
+        # # !!! should not use gen, should use FE number ? change_threshold should modify !!!
+        # if self.push_stage is False:
+        #     self.epsilon_k = self.update_epsilon(self.epsilon_k, self.epsilon_0, rf_pop_h, self.n_iter)
 
         if self.push_stage:
             pop_init_ccmo = DefaultDuplicateElimination().do(Population.merge(self.pop, self.pop_h))
             push_opt_alg = CCMO(pop_init_ccmo, self.pop_size, self.pop_size)
-            res = minimize(self.surrogate_problem, push_opt_alg, ('n_gen', 100))
-            pop_o_cand, pop_h_cand = res.algorithm.opt, res.algorithm.opt
+            res = minimize(self.surrogate_problem, push_opt_alg, ('n_gen', 20))
+            # pop_o_cand, pop_h_cand = res.algorithm.opt, res.algorithm.opt
+            pop_o_cand = res.algorithm.opt
+            pop_h_cand = res.algorithm.pop_h[NonDominatedSorting().do(res.algorithm.pop_h.get('F'), only_non_dominated_front=True)]
+
             if pop_o_cand.size < self.n_exploit:
                 pop_o_cand = self.survival_o.do(self.surrogate_problem, res.algorithm.pop, n_survive=self.n_exploit)
 
@@ -259,10 +181,13 @@ class CSCMO(GeneticAlgorithm):
     def _advance(self, infills=None, **kwargs):
         self.archive_o = Population.merge(self.archive_o, infills)
         self.archive_h = Population.merge(self.archive_h, infills[infills.get('archive') == 'help'])
-        self.pop = Population.merge(self.pop, infills[infills.get('archive') == 'origin'])
-        self.pop_h = Population.merge(self.pop_h, infills[infills.get('archive') == 'help'])
-        self.pop = self.survival_o.do(self.problem, self.pop, n_survive=self.pop_size)
-        self.pop_h = self.survival_help.do(self.problem, self.pop_h, n_survive=self.pop_size)
+        # self.pop = Population.merge(self.pop, infills[infills.get('archive') == 'origin'])
+        # self.pop_h = Population.merge(self.pop_h, infills[infills.get('archive') == 'help'])
+        self.pop = Population.merge(self.pop, infills)
+        self.pop_h = Population.merge(self.pop_h, infills)
+
+        self.pop = self.survival_o.do(self.problem, self.pop, n_survive=(self.n_explore + self.n_exploit)*20)
+        self.pop_h = self.survival_help.do(self.problem, self.pop_h, n_survive=(self.n_explore + self.n_exploit)*20)
         self.surrogate_problem.fit(self.archive_o)
 
     def _setup(self, problem, **kwargs):

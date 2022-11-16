@@ -7,7 +7,7 @@ from pymoo.core.mating import Mating
 from pymoo.core.problem import Problem
 from pymoo.util.misc import norm_eucl_dist
 import numpy as np
-from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga2 import NSGA2, RankAndCrowdingSurvival, binary_tournament
 from pymoo.core.individual import calc_cv
 from pymoo.algorithms.soo.nonconvex.ga_niching import NicheGA
 from utils.help_problem import MinProblemCV, FindCvEdge
@@ -17,13 +17,17 @@ from utils.survival import RankAndCrowdingSurvivalIgnoreConstraint
 from algorithm.multimodal import TabuCV
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 
+
+
 def cluster_and_choose(opt: Population, n_cluster):
 
     if len(opt) <= n_cluster:
         return [i for i in range(len(opt))]
 
     choose_index = []
-    norm_f_pop1 = normalize(opt.get('F'))
+    ideal = opt.get("F").min(axis=0)
+    nadir = opt.get("F").max(axis=0) + 1e-16
+    norm_f_pop1 = normalize(opt.get('F'), ideal, nadir)
     kmeans = KMeans(n_clusters=n_cluster, random_state=0).fit(norm_f_pop1)
     groups = [[] for _ in range(n_cluster)]
     for k, i in enumerate(kmeans.labels_):
@@ -91,8 +95,13 @@ def select_exploit_explore_ind_simple(pop: Population, archive: Population,
 
     if help_flag:
         pop = RankAndCrowdingSurvivalIgnoreConstraint().do(problem, pop)
+        pop_exploit = pop[cluster_and_choose(pop, n_exploit+n_explore)]
+        return pop_exploit[:n_exploit], pop_exploit[n_exploit:]
 
-    pop_exploit = pop[cluster_and_choose(pop, n_exploit)]
+    else:
+        pop_exploit = pop[cluster_and_choose(pop, n_exploit+n_explore)]
+        return pop_exploit[:n_exploit], pop_exploit[n_exploit:]
+
     off = mating.do(problem, pop_exploit, n_explore*100, algorithm=alg)
 
     if help_flag is False:
@@ -121,13 +130,13 @@ def select_exploit_explore_ind_simple(pop: Population, archive: Population,
 def pull_stage_search(pop: Population, archive: Population,
                       n_exploit, n_explore, mating: Mating, problem: Problem, help_flag, alg) -> tuple:
 
-    cv_obj_problem = MinProblemCV(problem)
-    cv_opt_pop = Population.new(X=pop.get('X'))
-    multi_modal_cv_alg = NicheGA(pop_size=100, n_offsprings=100, sampling=cv_opt_pop)
-    cv_opt_res = minimize(cv_obj_problem, multi_modal_cv_alg, ('n_gen', 100))
-    cv_opt_cand = cv_opt_res.pop[cv_opt_res.pop.get('F')[:, 0] == 0]
-    cv_opt_cand = Population.new(X=cv_opt_cand.get('X'))
-    pop_h = Population.merge(pop, cv_opt_cand)
+    # cv_obj_problem = MinProblemCV(problem)
+    cv_opt_pop = Population.new()
+    # multi_modal_cv_alg = NicheGA(pop_size=100, n_offsprings=100, sampling=cv_opt_pop)
+    # cv_opt_res = minimize(cv_obj_problem, multi_modal_cv_alg, ('n_gen', 100))
+    # cv_opt_cand = cv_opt_res.pop[cv_opt_res.pop.get('F')[:, 0] == 0]
+    # cv_opt_cand = Population.new(X=cv_opt_cand.get('X'))
+    pop_h = Population.merge(pop, cv_opt_pop)
     Evaluator().eval(problem, pop_h)
 
     pop_h_exploit, pop_h_explore = select_exploit_explore_ind_simple(pop_h, archive, n_exploit, n_explore, mating,
@@ -158,6 +167,67 @@ def pull_stage_explore(pop: Population, problem: Problem, n_explore, edge_epsilo
         res_cand = res_pop_feasible[index]
         cand = res_cand[cluster_and_choose(res_cand, n_explore)]
         return cand
+
+
+def select_cand_from_edge(pop_edge: Population, problem: Problem, archive: Population, n_exploit, n_explore):
+    pop_edge = pop_edge[pop_edge.get('F')[:, 0] <= 0]
+    pop_edge = Population.new(X=pop_edge.get('X'))
+    Evaluator().eval(problem, pop_edge)
+    # f = pop_feasible.get('F')
+    fes = pop_edge.get('feasible')
+    if len(fes) == 0:
+        print('no found feasible')
+        return None
+    pop_feasible = pop_edge[pop_edge.get('feasible')[:, 0]]
+   # print('len feasible', len(pop_feasible))
+    pop_feasible.set('edge', 1)
+    # ideal = pop_feasible.get("F").min(axis=0)
+    # nadir = pop_feasible.get("F").max(axis=0) + 1e-16
+    # vals = normalize(pop_feasible.get("F"), ideal, nadir)
+    # nds = NonDominatedSorting()
+    # front = nds.do(vals)
+    # cand_index = []
+    # sum_cand = 0
+    # pop_feasible_cand = Population.new()
+    #
+    # for i in range(len(front)):
+    #     cand_index.append(front[i])
+    #     sum_cand += len(front[i])
+    #     if sum_cand > len(pop_feasible)/2:
+    #         break
+    #
+    # for i in range(len(cand_index)):
+    #     pop_feasible_cand = Population.merge(pop_feasible_cand, pop_feasible[cand_index[i]])
+    pop_surr = RankAndCrowdingSurvival().do(problem, Population.merge(pop_feasible, archive))
+    fronts = NonDominatedSorting().do(pop_surr.get('F'))
+    sum_cand = 0
+    pop_cand = Population.new()
+    for i in range(len(fronts)):
+        edge_pop = pop_surr[fronts[i]][pop_surr[fronts[i]].get('edge') == 1]
+        sum_cand += len(edge_pop)
+        pop_cand = Population.merge(pop_cand, edge_pop)
+        if sum_cand > n_exploit + n_explore:
+            break
+
+    pop_exploit = pop_cand[cluster_and_choose(pop_cand, n_exploit+n_explore)]
+    # others = Population.merge(archive, pop_exploit)
+    # I = my_select_points_with_maximum_distance(problem, pop_feasible.get('X'), others.get('X'), n_explore)
+    # pop_explore = pop_feasible[I]
+    # print('edge:', pop_exploit)
+    return pop_exploit
+
+
+def select_cand(pop: Population, archive: Population, n_cand, problem: Problem, help_flag, alg):
+
+    if help_flag:
+        pop = RankAndCrowdingSurvivalIgnoreConstraint().do(problem, pop)
+        pop_cand = pop[cluster_and_choose(pop, n_cand)]
+        return pop_cand
+
+    else:
+        pop_cand = pop[cluster_and_choose(pop, n_cand)]
+        return pop_cand
+
 
 
 if __name__ == '__main__':

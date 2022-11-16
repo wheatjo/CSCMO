@@ -6,7 +6,7 @@ from pymoo.util.misc import cdist
 
 class TabuCV(GA):
 
-    def __init__(self, pop_size=100, n_offsprings=100, sampling=None, niche_dist=0.03):
+    def __init__(self, pop_size=100, n_offsprings=100, sampling=None, niche_dist=0.4):
         super().__init__(pop_size=pop_size, n_offsprings=n_offsprings, sampling=sampling)
         self.tabu_pop_list = Population.new()
         self.min_ind_distance = niche_dist
