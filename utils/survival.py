@@ -7,6 +7,7 @@ from pymoo.util.normalization import normalize
 from scipy.spatial.distance import cdist
 from pymoo.core.individual import calc_cv
 
+
 class RankAndCrowdingSurvivalIgnoreConstraint(Survival):
 
     def __init__(self, nds=None) -> None:
@@ -64,14 +65,18 @@ class ArchSurvival(Survival):
         nd_ind = pop[nd_front]
 
         archive_pop = nd_ind[~nd_ind.get('feasible').squeeze()]
-        delete = self.delete(archive_pop, len(archive_pop)-n_survive)
-        archive_pop = archive_pop[~(delete == 1)]
+        if len(archive_pop) > 10:
+            delete = self.delete(archive_pop, len(archive_pop)-n_survive)
+            archive_pop = archive_pop[~(delete == 1)]
         return archive_pop
 
     @staticmethod
     def delete(pop_v, num_delete):
         F = pop_v.get('F')
-        F_norm = normalize(F)
+        # F_norm = normalize(F)
+        nadir = np.max(F, axis=0)
+        ideal = np.min(F, axis=0)
+        F_norm = (F - nadir) / (ideal - nadir - 1e-10)
         cosine = 1 - cdist(F_norm, F_norm, 'cosine')
         cosine = cosine * (1 - np.eye(len(F)))
         delete_index = np.zeros(len(pop_v))
@@ -90,4 +95,14 @@ class ArchSurvival(Survival):
                 cosine[ind_min_angle_index[0], :] = 0
 
         return delete_index
-    
+
+
+class ExpensiveArchSurvival(Survival):
+
+    def __init__(self, filter_infeasible=False):
+        super(ExpensiveArchSurvival, self).__init__(filter_infeasible)
+        self.nds = NonDominatedSorting()
+
+    def _do(self, problem, pop, *args, n_survive=None, **kwargs):
+        F = pop.get('F')
+

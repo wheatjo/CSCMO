@@ -217,7 +217,7 @@ def select_cand_from_edge(pop_edge: Population, problem: Problem, archive: Popul
     return pop_exploit
 
 
-def select_cand(pop: Population, archive: Population, n_cand, problem: Problem, help_flag, alg):
+def select_cand_cluster(pop: Population, n_cand, problem: Problem, help_flag):
 
     if help_flag:
         pop = RankAndCrowdingSurvivalIgnoreConstraint().do(problem, pop)

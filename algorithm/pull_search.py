@@ -120,12 +120,13 @@ class CoStrategySearch(GeneticAlgorithm):
         if len(self.pop_h) < len(self.pop):
             off = self.mating.do(self.problem, Population.merge(self.pop, self.pop_h), n_offsprings=self.pop_size)
         else:
+            # print('matting_pool')
             matting_pool = self.pre_select.do(self.problem, Population.merge(self.pop, self.pop_h), len(self.pop),
                                               n_parents=1, n_pop_o=len(self.pop))
             off = self.mating_h.do(problem=self.problem, pop=matting_pool,
                                  n_offsprings=self.n_offsprings, algorithm=self)
         self.evaluator.eval(self.problem, off)
-        self.pop = Population.merge(self.pop, off)
+        self.pop = Population.merge(self.pop, self.pop_h, off)
         self.pop_h = Population.merge(self.pop, self.pop_h, off)
         self.pop = self.survival.do(problem=self.problem, pop=self.pop, n_survive=self.pop_size)
         self.pop_h = self.survival_help.do(problem=self.problem, pop=self.pop_h, n_survive=self.pop_size)

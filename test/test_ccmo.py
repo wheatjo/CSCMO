@@ -20,8 +20,8 @@ from DisplayProblem.displayctp import DisplayCTP1
 from sample.feasible_sample import FeasibleSampling
 
 
-problem_name = 'mw10'
-problem = DisplayMW10()
+problem_name = 'mw13'
+problem = DisplayMW13()
 # problem = get_problem(problem_name, n_obj=2)
 pop_init = LatinHypercubeSampling().do(problem, 100)
 # pop_init = FeasibleSampling().do(problem, 200)

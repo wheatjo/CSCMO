@@ -48,6 +48,41 @@ class FeasibleSampling(Sampling):
         return pop.get('X')
 
 
+class NichingGASampling(Sampling):
+
+    def __init__(self, sampling=LatinHypercubeSampling(), initial_eps=0.25):
+        super().__init__()
+        self.initial_eps = initial_eps
+        self.sampling = sampling
+
+    def _do(self, problem, n_samples, **kwargs):
+
+        opt_problem = MinProblemCV(problem)
+        eps = self.initial_eps
+
+        while True:
+
+            algorithm = NicheGA(pop_size=n_samples, samping=self.sampling, norm_niche_size=eps, norm_by_dim=True)
+
+            res = minimize(opt_problem, algorithm, ("n_gen", 200), return_least_infeasible=True)
+            opt = res.opt
+
+            X = opt.get("X")[opt.get("CV")[:, 0] <= 0]
+
+            print(eps, len(X))
+
+            if len(X) >= n_samples:
+                break
+
+            eps = eps * 0.9
+
+        if len(X) > n_samples:
+            I = my_select_points_with_maximum_distance(X, n_samples)
+            X = X[I]
+
+        return X
+
+
 class FeasibleSamplingTabu(Sampling):
 
     def __init__(self, niche_size=0.03):
