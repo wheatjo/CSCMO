@@ -5,7 +5,7 @@ from pymoo.algorithms.soo.nonconvex.ga_niching import NicheGA
 from pymoo.optimize import minimize
 from pymoo.operators.sampling.lhs import LatinHypercubeSampling
 from utils.SelectCand import my_select_points_with_maximum_distance
-from algorithm.multimodal import TabuCV
+from algorithm.multimodal import TabuCV, TabuCVII
 from pymoo.core.evaluator import Evaluator
 from sklearn.cluster import KMeans
 from pymoo.util.normalization import normalize
@@ -17,6 +17,7 @@ from pysamoo.sampling.niching import NichingConstrainedSampling
 from pysamoo.sampling.rejection import RejectionConstrainedSampling
 from pymoo.util.normalization import normalize, denormalize
 from pymoo.util.misc import norm_eucl_dist
+import math
 
 
 class FeasibleSampling(Sampling):
@@ -77,7 +78,7 @@ class NichingGASampling(Sampling):
             eps = eps * 0.9
 
         if len(X) > n_samples:
-            I = my_select_points_with_maximum_distance(X, n_samples)
+            I = my_select_points_with_maximum_distance(problem, X, X, n_samples)
             X = X[I]
 
         return X
@@ -93,10 +94,14 @@ class FeasibleSamplingTabu(Sampling):
     def _do(self, problem, n_samples, **kwargs):
         opt_problem = MinProblemCV(problem)
         pop = Population.new()
-        alg = TabuCV(pop_size=n_samples, n_offsprings=n_samples, sampling=LatinHypercubeSampling().do(opt_problem, 1000), niche_dist=self.niche_size)
+        alg = TabuCVII(pop_size=n_samples, n_offsprings=n_samples, sampling=LatinHypercubeSampling().do(opt_problem, 1000), niche_dist=self.niche_size)
         res = minimize(opt_problem, alg, ('n_gen', 100), verbose=True)
-        result_pop = Population.new(X=res.pop[res.pop.get('F')[:, 0] == 0].get('X'))
-        pop_feasible = result_pop[result_pop.get('feasible')[:, 0]]
+        flag = res.algorithm.tabu_pop_list.get('feasible')
+        temp = res.algorithm.tabu_pop_list[res.algorithm.tabu_pop_list.get('feasible').squeeze()]
+        print(len(temp))
+        # result_pop = Population.new(X=res.pop[res.pop.get('F')[:, 0] == 0].get('X'))
+        # pop_feasible = result_pop[result_pop.get('feasible')[:, 0]]
+        pop_feasible = Population.new(X=temp.get('X'))
         X_norm = normalize(pop_feasible.get('X'), xl=problem.xl, xu=problem.xu)
         kmeans = KMeans(n_clusters=min(problem.n_var * 11 + 25, len(pop_feasible)), random_state=0).fit(X_norm)
         # print(len(pop_feas))
@@ -111,6 +116,36 @@ class FeasibleSamplingTabu(Sampling):
 
         sel_ind = pop_feasible[index][:, 0]
 
+        return sel_ind.get('X')
+
+
+class FeasibleSamplingTabuDistance(Sampling):
+
+    def __init__(self, niche_size=0.03):
+        super(FeasibleSamplingTabuDistance, self).__init__()
+        self.max_epoch = 1
+        self.niche_size = niche_size
+
+    def _do(self, problem, n_samples, **kwargs):
+        opt_problem = MinProblemCV(problem)
+        pop = Population.new()
+        alg = TabuCVII(pop_size=n_samples, n_offsprings=n_samples, sampling=LatinHypercubeSampling().do(opt_problem, 1000), niche_dist=self.niche_size)
+        res = minimize(opt_problem, alg, ('n_gen', 100), verbose=True)
+        flag = res.algorithm.tabu_pop_list.get('feasible')
+        temp = res.algorithm.tabu_pop_list[res.algorithm.tabu_pop_list.get('feasible').squeeze()]
+        print(len(temp))
+        if len(temp) > n_samples:
+            pop_feasible = Population.new(X=temp.get('X'))
+            ind_to_other = norm_eucl_dist(problem, pop_feasible.get('X'), pop_feasible.get('X'))
+            di = np.diag_indices(ind_to_other.shape[0])
+            ind_to_other[di] = np.inf
+            ind_to_other = np.sort(ind_to_other, axis=1)
+            min_dis = -1.0 * ind_to_other[:, math.ceil(math.sqrt(n_samples))]
+            min_dis_sort = np.argsort(min_dis)[:n_samples]
+            sel_ind = pop_feasible[min_dis_sort]
+
+        else:
+            sel_ind = temp
         return sel_ind.get('X')
 
 
@@ -224,9 +259,11 @@ if __name__ == '__main__':
     from utils.visualization import display_result
     from pymoo.operators.sampling.lhs import LatinHypercubeSampling
     from pymoo.core.individual import calc_cv
-    problem = DisplayMW2()
+    problem = DisplayMW7()
     # pop_init = LatinHypercubeSampling().do(problem, 500)
-    pop_init = FeasibleSamplingTabuEdge(niche_size=0.5, epsilon=0.5).do(problem, 1000)
+    # pop_init = FeasibleSamplingTabuEdge(niche_size=0.5, epsilon=0.5).do(problem, 1000)
+    # pop_init = FeasibleSamplingTabu(niche_size=0.05).do(problem, 120)
+    pop_init = NichingGASampling().do(problem, 120)
     # print(len(pop_init))
     F = problem.evaluate(pop_init.get('X'), return_values_of=['G', 'H'])
     # cv = calc_cv(F[0], F[1])
@@ -244,7 +281,7 @@ if __name__ == '__main__':
     sel_F = problem.evaluate(pop_init.get('X'), return_values_of=['F'])
 
     # pop = MyEnergyConstrainedSampling(constr).do(problem, problem.n_var*11+24, pop_init=pop_init)
-
+    print(len(sel_F))
     display_result(problem, sel_F)
 
 

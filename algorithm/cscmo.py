@@ -5,7 +5,7 @@ from pymoo.core.population import Population
 from pymoo.algorithms.moo.nsga2 import RankAndCrowdingSurvival, binary_tournament
 from pymoo.core.mating import Mating
 from pymoo.operators.selection.tournament import compare, TournamentSelection
-from utils.survival import RankAndCrowdingSurvivalIgnoreConstraint
+from utils.survival import RankAndCrowdingSurvivalIgnoreConstraint, find_nd_infeasible
 from pymoo.termination.default import DefaultMultiObjectiveTermination
 from pymoo.util.display.multi import MultiObjectiveOutput
 from pymoo.operators.crossover.sbx import SBX
@@ -42,7 +42,7 @@ class CSCMO(GeneticAlgorithm):
         # self.problem = problem_o
         # self.problem_help = problem_h
 
-        self.last_gen = 2
+        self.last_gen = 10
         self.change_threshold = 1e-3
         self.push_stage = True
         self.ideal_points = [np.array([]) for i in range(self.last_gen)]
@@ -112,23 +112,27 @@ class CSCMO(GeneticAlgorithm):
 
         # Pull search stage
         else:
+            # nd_infeas = find_nd_infeasible(self.archive_all)
             pop_init_costra = DefaultDuplicateElimination().do(Population.merge(self.pop, self.pop_h))
-            pull_opt_alg = CoStrategySearch(pop_o_init=pop_init_costra, pop_size=self.pop_size, n_offspring=self.pop_size)
+            # if len(nd_infeas) > self.n_cand:
+            #     pull_opt_alg = CoStrategySearch(pop_o_init=pop_init_costra, pop_size=self.pop_size, n_offspring=self.pop_size)
+            # else:
+            pull_opt_alg = CCMO(pop_o_init=pop_init_costra, pop_size=self.pop_size, n_offspring=self.pop_size)
             res = minimize(self.surrogate_problem, pull_opt_alg, ('n_gen', 20))
             pop_o_cand = res.algorithm.opt
             pop_h_cand = Population.new()
-            if len(res.algorithm.pop_h) > self.n_cand:
-                pop_h_cand = res.algorithm.pop_h[NonDominatedSorting().do(res.algorithm.pop_h.get('F'), only_non_dominated_front=True)]
+            # if len(res.algorithm.pop_h) > self.n_cand:
+            #     pop_h_cand = res.algorithm.pop_h[NonDominatedSorting().do(res.algorithm.pop_h.get('F'), only_non_dominated_front=True)]
 
             if pop_o_cand.size < self.n_cand:
                 pop_o_cand = self.survival_o.do(self.surrogate_problem, res.algorithm.pop, n_survive=self.n_cand)
 
-            if pop_h_cand.size < self.n_cand and len(res.algorithm.pop_h):
-                pop_h_cand = self.survival_help.do(self.surrogate_problem, res.algorithm.pop_h, n_survive=self.n_cand)
+            # if pop_h_cand.size < self.n_cand and len(res.algorithm.pop_h):
+            #     pop_h_cand = self.survival_help.do(self.surrogate_problem, res.algorithm.pop_h, n_survive=self.n_cand)
 
             pop_o_cand = select_cand_cluster(pop_o_cand, n_cand=self.n_cand, problem=self.surrogate_problem, help_flag=False)
-            if len(pop_h_cand) > 0:
-                pop_h_cand = select_cand_cluster(pop_h_cand, n_cand=self.n_cand, problem=self.surrogate_problem, help_flag=True)
+            # if len(pop_h_cand) > 0:
+            #     pop_h_cand = select_cand_cluster(pop_h_cand, n_cand=self.n_cand, problem=self.surrogate_problem, help_flag=True)
 
         off_infills = create_infills(pop_o_cand, pop_h_cand)
 

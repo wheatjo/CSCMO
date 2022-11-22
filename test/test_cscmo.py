@@ -20,14 +20,16 @@ from sample.feasible_sample import FeasibleSampling, FeasibleSamplingTabu, Nichi
 from utils.visualization import display_result_fix_lim, visual_process_dual_pop_fix, visualize_process_no_region, \
     visualize_process_test_3d
 
-problem_name = 'ctp1'
-problem = DisplayCTP1(n_var=10)
+problem_name = 'mw1'
+problem = DisplayMW1()
 # problem = get_problem(problem_name, n_obj=2)
+pf = problem.pareto_front()
 output = MyOutput()
 
-n_eval = 300
+n_eval = 600
 # pop_init = LatinHypercubeSampling().do(problem, problem.n_var*11+5)
 pop_init = FeasibleSamplingTabu().do(problem, problem.n_var*11+5)
+print(len(pop_init.get('feasible')))
 # pop_init = NichingGASampling().do(problem, problem.n_var*11+25)
 # evaluator = Evaluator()
 # evaluator.eval(problem, pop_init)

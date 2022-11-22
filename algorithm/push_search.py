@@ -11,6 +11,9 @@ from pymoo.operators.mutation.pm import PM
 import copy
 from pymoo.algorithms.soo.nonconvex.de import Variant
 from pymoo.operators.control import NoParameterControl
+from pymoo.operators.sampling.lhs import LatinHypercubeSampling
+from pymoo.algorithms.moo.moead import NeighborhoodSelection
+from pymoo.core.duplicate import NoDuplicateElimination
 
 
 class CCMO(GeneticAlgorithm):
@@ -50,3 +53,53 @@ class CCMO(GeneticAlgorithm):
             self.pop = self.survival.do(self.problem, infills)
         self.pop_h = copy.deepcopy(self.pop)
     # def _setup(self, problem, **kwargs):
+
+
+class MOEADEGO(GeneticAlgorithm):
+
+    def __init__(self,
+                 ref_dirs=None,
+                 n_neighbors=20,
+                 decomposition=None,
+                 prob_neighbor_mating=0.9,
+                 sampling=LatinHypercubeSampling(),
+                 crossover=SBX(prob=1.0, eta=20),
+                 mutation=PM(prob_var=None, eta=20),
+                 output=MultiObjectiveOutput(),
+                 **kwargs):
+        self.ref_dirs = ref_dirs
+
+        # the decomposition metric used
+        self.decomposition = decomposition
+
+        # the number of neighbors considered during mating
+        self.n_neighbors = n_neighbors
+
+        self.neighbors = None
+
+        self.selection = NeighborhoodSelection(prob=prob_neighbor_mating)
+
+        super().__init__(pop_size=len(ref_dirs),
+                         sampling=sampling,
+                         crossover=crossover,
+                         mutation=mutation,
+                         eliminate_duplicates=NoDuplicateElimination(),
+                         output=output,
+                         advance_after_initialization=False,
+                         **kwargs)
+
+        def _setup(self, problem, **kwargs):
+            assert not problem.has_constraints(), "This implementation of MOEAD does not support any constraints."
+
+            # if no reference directions have been provided get them and override the population size and other settings
+            if self.ref_dirs is None:
+                self.ref_dirs = default_ref_dirs(problem.n_obj)
+            self.pop_size = len(self.ref_dirs)
+
+            # neighbours includes the entry by itself intentionally for the survival method
+            self.neighbors = np.argsort(cdist(self.ref_dirs, self.ref_dirs), axis=1, kind='quicksort')[:,
+                             :self.n_neighbors]
+
+            # if the decomposition is not set yet, set the default
+            if self.decomposition is None:
+                self.decomposition = default_decomp(problem)

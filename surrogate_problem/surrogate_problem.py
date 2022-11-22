@@ -5,7 +5,7 @@ from scipy.interpolate import RBFInterpolator
 from pymoo.core.individual import calc_cv
 from surrogate.models.rbf import RBF
 from surrogate.selection import ModelSelection
-
+from surrogate.models.kriging import Kriging
 # suppose surrogate problem just for expensive object and cheap constraint
 # only build surrogate model for object function
 class SurrogateProblem(Problem):
@@ -37,7 +37,7 @@ class SurrogateProblem(Problem):
         #     target = RBFInterpolator(X, objs[:, i][:, np.newaxis])
         #     # target = RBFInterpolator(X, objs[:, i])
         #     self.surrogate.append(target)
-        proto = RBF
+        proto = Kriging
         X, F = archive.get('X'), archive.get('F')
         for k in range(self.n_obj):
             model = ModelSelection(proto).do(X, F[:, k])
