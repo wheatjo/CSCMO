@@ -43,8 +43,8 @@ class CCMO(GeneticAlgorithm):
         off_h = self.mating_o.do(problem=self.problem, pop=self.pop_h, n_offsprings=self.n_offsprings, algorithm=self)
         self.pop = Population.merge(self.pop, off_o, off_h)
         self.pop_h = Population.merge(self.pop_h, off_o, off_h)
-        self.evaluator.eval(self.problem, self.pop)
-        self.evaluator.eval(self.problem, self.pop_h)
+        self.evaluator.eval(self.problem, self.pop, ei_flag=True)
+        self.evaluator.eval(self.problem, self.pop_h, ei_flag=False)
 
         self.pop = self.survival.do(problem=self.problem, pop=self.pop, n_survive=self.pop_size)
         self.pop_h = self.survival_help.do(problem=self.problem, pop=self.pop_h, n_survive=self.pop_size)

@@ -25,7 +25,7 @@ from algorithm.pull_search import CoStrategySearch
 from utils.SelectCand import select_cand_cluster
 from pymoo.util.reference_direction import default_ref_dirs
 from pysamoo.core.archive import Archive
-
+from surrogate_problem.surrogate_problem import SurrogateProblemUCBEI
 
 def create_infills(pop_o_cand, pop_h_cand):
     off_o_cand = Population.new(X=pop_o_cand.get('X'))
@@ -152,6 +152,7 @@ class CSCMO(GeneticAlgorithm):
             self.pop = self.survival_o.do(self.problem, infills)
             self.pop_h = self.survival_help.do(self.problem, infills)
         self.archive_all = Population.merge(self.archive_all, infills)
+        # archive_train = self.survival_help.do(self.problem, self.archive_all, n_survive=int(self.problem.n_var*15))
         self.surrogate_problem.fit(self.archive_all)
 
     def _advance(self, infills=None, **kwargs):
@@ -161,12 +162,18 @@ class CSCMO(GeneticAlgorithm):
         self.pop = self.survival_o.do(self.problem, self.pop, n_survive=self.n_cand*10)
         self.pop_h = self.survival_help.do(self.problem, self.pop_h, n_survive=self.n_cand*10)
         self.archive_all = Population.merge(self.archive_all, infills)
+        # archive_train = self.survival_help.do(self.problem, self.archive_all, n_survive=int(self.problem.n_var*15))
+        # print(f'archive_train: {len(self.archive_train)}')
+        # print(f'archive_X: {self.archive_train.get("X").shape}')
+        # print(f'archive_F: {self.archive_train.get("F").shape}')
         self.surrogate_problem.fit(self.archive_all)
 
     def _setup(self, problem, **kwargs):
         # self.surrogate_problem = SurrogateProblem(self.problem)
+        # self.surrogate_problem = SurrogateProblemGaussianRbf(self.problem)
         self.surrogate_problem = SurrogateProblemGaussianRbf(self.problem)
         self.archive_all = Population()
+
         # self.archive = Archive(max_size=self.n_offsprings*20, survival=RankAndCrowdingSurvivalIgnoreConstraint(),
         #                        problem=self.problem)
         # self.surrogate_problem.fit(self.archive_o)

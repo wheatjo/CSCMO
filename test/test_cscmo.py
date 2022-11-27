@@ -25,8 +25,8 @@ from scipy.stats import qmc
 from utils.save_data import SaveData
 from utils.mycallback import MyCallBack
 
-problem_name = 'mw1'
-problem = DisplayMW1()
+problem_name = 'mw2'
+problem = DisplayMW2()
 # problem = get_problem(problem_name, n_obj=2)
 algorithm_name = 'cscmo'
 pf = problem.pareto_front()
