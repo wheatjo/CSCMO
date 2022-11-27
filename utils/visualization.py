@@ -183,8 +183,8 @@ def display_result(test_problem, pop):
                  vmin=-abs(pf_region_z).max(), aspect='auto')
 
     ax.plot(pop[:, 0], pop[:, 1], 'go', markerfacecolor='none')
-    ax.set_xlim(pf_region_x[0][0], pf_region_x[0][-1])
-    ax.set_ylim(pf_region_y[0][0], pf_region_y[-1][0])
+    # ax.set_xlim(pf_region_x[0][0], pf_region_x[0][-1])
+    # ax.set_ylim(pf_region_y[0][0], pf_region_y[-1][0])
     plt.show()
     # fig.savefig(os.path.join('a.png'), dpi=300)
 
@@ -303,6 +303,49 @@ def visualize_process_one_pop_fix(pop_history: list, test_problem, problem_name:
 
     ani = FuncAnimation(fig, update, frames=frame_data, init_func=init, repeat=False)
     ani.save(save_path + '/' + f"{problem_name}.gif", dpi=300, writer=PillowWriter(fps=20))
+
+
+def visual_dual_pop(pop_history: dict, test_problem, problem_name: str, save_path):
+    plt.ioff()
+    fig, ax = plt.subplots()
+    pop_plot = ax.plot([], [], 'go', markerfacecolor='none', label='pop_o')[0]
+    pop2_plot = ax.plot([], [], 'bo', markerfacecolor='none', label='pop_h')[0]
+    # archive_plot = ax.plot([], [], 'r^', markerfacecolor='none')[0]
+    pareto_plot = ax.plot([], [], 'k.', label='pf')[0]
+    gen_opt_plot = ax.plot([], [], 'r.', label='optimal')[0]
+    pf_region_x, pf_region_y, pf_region_z = test_problem.get_pf_region()
+    im = ax.imshow(pf_region_z, cmap=cm.gray, origin='lower',
+                 extent=[pf_region_x[0][0], pf_region_x[0][-1], pf_region_y[0][0], pf_region_y[-1][0]], vmax=abs(pf_region_z / 9).max(),
+                 vmin=-abs(pf_region_z).max(), aspect='auto')
+    ax.legend(loc='lower left')
+
+    def update(frame):
+        pop_data = frame['pop_data']
+        opt_data = frame['opt']
+        pop_h_data = frame['pop_h_data']
+        pf_data = frame['pf']
+        ax.set_xlim(pf_region_x[0][0], pf_region_x[0][-1])
+        ax.set_ylim(pf_region_y[0][0], pf_region_y[-1][0])
+        pareto_plot.set_data(pf_data[:, 0], pf_data[:, 1])
+        pop_plot.set_data(pop_data[:, 0], pop_data[:, 1])
+        pop2_plot.set_data(pop_h_data[:, 0], pop_h_data[:, 1])
+        gen_opt_plot.set_data(opt_data[:, 0], opt_data[:, 1])
+        # ax.legend()
+        ax.set_title(f"problem: {problem_name}  gen: {frame['gen']} n_eval: {frame['n_eval']}")
+
+    def init():
+        ax.set_xlim(pf_region_x[0][0], pf_region_x[0][-1])
+        ax.set_ylim(pf_region_y[0][0], pf_region_y[-1][0])
+        return pop_plot
+
+    frame_data = []
+    for i in range(len(pop_history['pop_o'])):
+        frame_data.append({'gen': i, 'pop_data': pop_history['pop_o'][i], 'pop_h_data':  pop_history['pop_h'][i],
+                           'opt':  pop_history['pop_opt'][i], 'pf': pop_history['pf'],
+                           'n_eval': pop_history['n_eval'][i]})
+
+    ani = FuncAnimation(fig, update, frames=frame_data, init_func=init, repeat=False)
+    ani.save(save_path, dpi=300, writer=PillowWriter(fps=20))
 
 
 if __name__ == '__main__':

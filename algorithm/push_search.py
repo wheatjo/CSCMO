@@ -14,7 +14,9 @@ from pymoo.operators.control import NoParameterControl
 from pymoo.operators.sampling.lhs import LatinHypercubeSampling
 from pymoo.algorithms.moo.moead import NeighborhoodSelection
 from pymoo.core.duplicate import NoDuplicateElimination
-
+from pysamoo.core.archive import Archive
+from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+from pymoo.util.optimum import filter_optimum
 
 class CCMO(GeneticAlgorithm):
     # problem is surrogate model
@@ -52,8 +54,12 @@ class CCMO(GeneticAlgorithm):
         if self.advance_after_initial_infill:
             self.pop = self.survival.do(self.problem, infills)
         self.pop_h = copy.deepcopy(self.pop)
-    # def _setup(self, problem, **kwargs):
+        self.archive_all = filter_optimum(infills)
 
+    def _advance(self, infills=None, **kwargs):
+        temp = Population.merge(self.pop, self.pop_h)
+
+        self.archive_all = Population.merge(self.archive_all, filter_optimum(temp))
 
 class MOEADEGO(GeneticAlgorithm):
 

@@ -6,8 +6,10 @@ from pymoo.core.individual import calc_cv
 from surrogate.models.rbf import RBF
 from surrogate.selection import ModelSelection
 from surrogate.models.kriging import Kriging
+from pysamoo.core.archive import Archive
 # suppose surrogate problem just for expensive object and cheap constraint
 # only build surrogate model for object function
+
 class SurrogateProblem(Problem):
 
     def __init__(self, origin_problem: Problem, surrogate=None):
@@ -22,22 +24,7 @@ class SurrogateProblem(Problem):
 
     def fit(self, archive: Population) -> None:
         self.surrogate = []
-
-        # fit_data_pop = Population.new(X=archive.get('X'), F=archive.get('F'))
-        # X = fit_data_pop.get('X')
-        # x_unique_index = np.unique(X, return_index=True, axis=0)[1]
-        # fit_data_pop_unique = fit_data_pop[x_unique_index]
-        # # print(f"X shape:{len(fit_data_pop_unique)}")
-        # # print(f"objs shape:{len(fit_data_pop_unique)}")
-        # X = fit_data_pop_unique.get('X')
-        # objs = fit_data_pop_unique.get('F')
-        # X, objs, constrains shape should equal 2
-        # for i in range(self.n_obj):
-        #
-        #     target = RBFInterpolator(X, objs[:, i][:, np.newaxis])
-        #     # target = RBFInterpolator(X, objs[:, i])
-        #     self.surrogate.append(target)
-        proto = Kriging
+        proto = RBF
         X, F = archive.get('X'), archive.get('F')
         for k in range(self.n_obj):
             model = ModelSelection(proto).do(X, F[:, k])
@@ -56,3 +43,54 @@ class SurrogateProblem(Problem):
         res = self._problem.evaluate(x, return_as_dictionary=True)
         out['G'] = res.get('G')
         out['H'] = res.get('H')
+
+
+class SurrogateProblemGaussianRbf(Problem):
+
+    def __init__(self, origin_problem: Problem, surrogate=None):
+        super().__init__(origin_problem.n_var, origin_problem.n_obj, origin_problem.n_ieq_constr,
+                         origin_problem.n_eq_constr,
+                         origin_problem.xl, origin_problem.xu)
+
+        # surrogate is list, [rbf_obj1, rbf_obj2, ..., rbf_constr1 ...]
+        self.surrogate = surrogate if surrogate is not None else []
+        self._problem = origin_problem
+        self._compute_constraint_flag = True
+
+    def fit(self, archive: Population) -> None:
+        self.surrogate = np.empty((2, self.n_obj), dtype=object)
+        proto_rbf = RBF
+        X, F = archive.get('X'), archive.get('F')
+        for k in range(self.n_obj):
+            model = ModelSelection(proto_rbf).do(X, F[:, k])
+            model.fit(X, F[:, k])
+            self.surrogate[0, k] = model
+
+        proto_kriging = Kriging
+        for k in range(self.n_obj):
+            model = ModelSelection(proto_kriging).do(X, F[:, k])
+            model.fit(X, F[:, k])
+            self.surrogate[1, k] = model
+
+    def _evaluate(self, x, out, *args, **kwargs):
+        n = len(x)
+        predict_rbf = np.full((n, self.n_obj), np.nan, dtype=float)
+        predict_gauss = np.full((n, self.n_obj), np.nan, dtype=float)
+        predict_gauss_sigma = np.full((n, self.n_obj), np.nan, dtype=float)
+        for i in range(self.n_obj):
+            predict_target = self.surrogate[0][i].predict(x)
+            predict_rbf[:, i] = predict_target.squeeze()
+
+        for i in range(self.n_obj):
+            res = self.surrogate[1][i].predict(x, return_values_of=['y', 'sigma'])
+            predict_gauss[:, i] = res[0].squeeze()
+            predict_gauss_sigma[:, i] = res[1].squeeze()
+
+        F = 0.5 * predict_rbf + 0.5 * predict_gauss - 3.0 * predict_gauss_sigma
+        out['F'] = F
+        res = self._problem.evaluate(x, return_as_dictionary=True)
+        out['G'] = res.get('G')
+        out['H'] = res.get('H')
+
+
+

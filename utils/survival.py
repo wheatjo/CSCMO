@@ -7,8 +7,8 @@ from pymoo.util.normalization import normalize
 from scipy.spatial.distance import cdist
 from pymoo.core.individual import calc_cv
 from pymoo.core.population import Population
-from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
-from fcmeans import FCM
+# from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
+# from fcmeans import FCM
 import math
 from pymoo.core.problem import Problem
 from pydacefit.corr import corr_gauss, corr_cubic, corr_exp, corr_expg, corr_spline, corr_spherical
@@ -17,7 +17,8 @@ from pydacefit.regr import regr_constant
 from pymoo.core.duplicate import DefaultDuplicateElimination
 from sklearn.cluster import KMeans
 from scipy.stats import norm
-
+from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
+from pyclustering.cluster.fcm import fcm
 
 
 class RankAndCrowdingSurvivalIgnoreConstraint(Survival):
@@ -147,10 +148,19 @@ class EGOSurvival(Survival):
     def _setup_model(self):
         pop_x = self.arch_pop.get('X')
         n_cluster = 1 + math.ceil((len(self.arch_pop) - self.L1) / self.L2)
-        self.fcm = FCM(n_cluster=n_cluster)
-        self.fcm.fit(pop_x)
+        # self.fcm = FCM(n_cluster=n_cluster)
+        # self.fcm.fit(pop_x)
+        # initialize
+        initial_centers = kmeans_plusplus_initializer(pop_x, n_cluster,
+                                                      kmeans_plusplus_initializer.FARTHEST_CENTER_CANDIDATE).initialize()
 
-        cluster_centers = self.fcm.centers
+        # create instance of Fuzzy C-Means algorithm
+        self.fcm_instance = fcm(pop_x, initial_centers)
+
+        # run cluster analysis and obtain results
+        self.fcm_instance.process()
+        # clusters = fcm_instance.get_clusters()
+        cluster_centers = self.fcm_instance.get_centers()
         dis_x_center = cdist(pop_x, cluster_centers)
         index = np.argsort(-1 * dis_x_center, axis=0)
         group = index[:self.L1, :]
@@ -178,9 +188,13 @@ class EGOSurvival(Survival):
         sel_ind_index = []
         for i in range(n_survive):
             index = np.argwhere(cluster_labels == i)
-            index = index.squeeze()
+            if index.size > 1:
+                index = index.squeeze()
+            else:
+                index = index[0]
             pop_cluster_i = pop[index]
             pop_cluster_i_objs, pop_cluster_i_mse = self.model_predict(pop_cluster_i)
+
             EI = np.zeros(len(index))
 
             for j in range(len(index)):
@@ -208,7 +222,10 @@ class EGOSurvival(Survival):
 
     def model_predict(self, pop: Population):
         pop_x = pop.get('X')
-        D = cdist(np.real(pop_x), np.real(self.fcm.centers))
+        if pop_x.ndim < 2:
+            pop_x = pop_x[np.newaxis, :]
+            pop = Population.merge(Population.new(), pop)
+        D = cdist(np.real(pop_x), np.array(self.fcm_instance.get_centers()))
         index = np.argmin(D, axis=1)
         pop_objs = np.zeros((len(pop), self.problem.n_obj))
         pop_objs_mse = np.zeros((len(pop), self.problem.n_obj))

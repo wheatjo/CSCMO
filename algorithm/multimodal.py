@@ -2,7 +2,7 @@ from pymoo.algorithms.soo.nonconvex.ga import GA
 from pymoo.core.population import Population
 import numpy as np
 from pymoo.util.misc import cdist
-
+from pymoo.core.duplicate import DefaultDuplicateElimination
 
 class TabuCV(GA):
 
@@ -50,21 +50,21 @@ class TabuCV(GA):
 
 class TabuCVII(GA):
 
-    def __init__(self, pop_size=100, n_offsprings=100, sampling=None, niche_dist=5):
+    def __init__(self, pop_size=100, n_offsprings=100, sampling=None, niche_dist=0.1):
         super().__init__(pop_size=pop_size, n_offsprings=n_offsprings, sampling=sampling)
         self.tabu_pop_list = Population.new()
         self.min_ind_distance = niche_dist
 
     def _initialize_advance(self, infills=None, **kwargs):
         super()._initialize_advance(infills, **kwargs)
-        feas_index = self.pop.get('feasible').squeeze()
-        self.tabu_pop_list = Population.merge(self.tabu_pop_list, self.pop[feas_index])
+        index = infills.get('feas')
+        self.tabu_pop_list = Population.merge(self.tabu_pop_list, self.pop[index])
 
     def update_tabu_list(self, infills):
-        feasible_index = infills.get('feasible').squeeze()
-        if np.sum(feasible_index) == 0:
+        index = infills.get('feas')
+        if len(index) == 0:
             return
-        self.tabu_pop_list = Population.merge(self.tabu_pop_list, infills[feasible_index])
+        self.tabu_pop_list = Population.merge(self.tabu_pop_list, infills[index])
 
     def delete_infill_in_tabu(self, infills):
         X = self.tabu_pop_list.get('X')

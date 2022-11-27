@@ -86,37 +86,39 @@ class NichingGASampling(Sampling):
 
 class FeasibleSamplingTabu(Sampling):
 
-    def __init__(self, niche_size=0.03):
+    def __init__(self, niche_size=0.2):
         super(FeasibleSamplingTabu, self).__init__()
         self.max_epoch = 1
         self.niche_size = niche_size
 
     def _do(self, problem, n_samples, **kwargs):
         opt_problem = MinProblemCV(problem)
-        pop = Population.new()
-        alg = TabuCVII(pop_size=n_samples, n_offsprings=n_samples, sampling=LatinHypercubeSampling().do(opt_problem, 1000), niche_dist=self.niche_size)
+        alg = TabuCVII(pop_size=500, n_offsprings=500,
+                       sampling=LatinHypercubeSampling().do(opt_problem, 500), niche_dist=self.niche_size)
+
         res = minimize(opt_problem, alg, ('n_gen', 100), verbose=True)
-        flag = res.algorithm.tabu_pop_list.get('feasible')
-        temp = res.algorithm.tabu_pop_list[res.algorithm.tabu_pop_list.get('feasible').squeeze()]
-        print(len(temp))
-        # result_pop = Population.new(X=res.pop[res.pop.get('F')[:, 0] == 0].get('X'))
-        # pop_feasible = result_pop[result_pop.get('feasible')[:, 0]]
-        pop_feasible = Population.new(X=temp.get('X'))
-        X_norm = normalize(pop_feasible.get('X'), xl=problem.xl, xu=problem.xu)
-        kmeans = KMeans(n_clusters=min(problem.n_var * 11 + 25, len(pop_feasible)), random_state=0).fit(X_norm)
-        # print(len(pop_feas))
-        groups = [[] for _ in range(min(problem.n_var * 11 + 25, len(pop_feasible)))]
-        index = []
-        for k, i in enumerate(kmeans.labels_):
-            groups[i].append(k)
+        res_pop_tabu_list = res.algorithm.tabu_pop_list
+        result_pop = Population.new(X=res_pop_tabu_list[res_pop_tabu_list.get('feas')].get('X'))
+        Evaluator().eval(problem, result_pop)
+        pop_feas = result_pop[result_pop.get('feas')]
+        pop_sel = None
+        if len(result_pop) > 0:
+            X_norm = normalize(pop_feas.get('X'), xl=problem.xl, xu=problem.xu)
+            kmeans = KMeans(init="k-means++", n_clusters=min(problem.n_var * 11 + 25, len(pop_feas)),
+                            random_state=0).fit(X_norm)
+            groups = [[] for _ in range(min(problem.n_var * 11 + 25, len(pop_feas)))]
 
-        for group in groups:
-            if len(group) > 0:
-                index.append(np.random.choice(group, 1))
+            for k, i in enumerate(kmeans.labels_):
+                groups[i].append(k)
 
-        sel_ind = pop_feasible[index][:, 0]
+            index = []
+            for group in groups:
+                if len(group) > 0:
+                    index.append(np.random.choice(group, 1))
 
-        return sel_ind.get('X')
+            pop_sel = pop_feas[index].squeeze()
+
+        return pop_sel.get('X')
 
 
 class FeasibleSamplingTabuDistance(Sampling):
