@@ -162,24 +162,24 @@ def run_cscmo(config, run_number):
 
 if __name__ == '__main__':
 
-    every_problem_run_total = 1
+    every_problem_run_total = 11
     # process_list = []
 
-    # with Pool(processes=2) as pool:
+    with Pool(processes=4) as pool:
 
-    #     for i in range(len(setup)):
-    #         test_problem_args = []
+        for i in range(len(setup)):
+            test_problem_args = []
 
-    #         for j in range(every_problem_run_total):
-    #             test_problem_args.append((setup[i], j))
+            for j in range(every_problem_run_total):
+                test_problem_args.append((setup[i], j))
 
-    #         iters = pool.starmap(run_cscmo, test_problem_args)
-    #         for ret in iters:
-    #             print(f"finish {setup[i]['problem_name']}")
+            iters = pool.starmap(run_cscmo, test_problem_args)
+            for ret in iters:
+                print(f"finish {setup[i]['problem_name']}")
 
-    for i in range(len(setup)):
-        for j in range(every_problem_run_total):
-            run_cscmo(setup[i], j)
+    # for i in range(len(setup)):
+    #     for j in range(every_problem_run_total):
+    #         run_cscmo(setup[i], j)
 # -----------------
     # for i in range(int(len(setup)/3)):
     #     p = Process(target=run_icnsga2, args=(setup[i], 1))

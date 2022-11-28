@@ -89,7 +89,7 @@ class SurrogateProblemGaussianRbf(Problem):
             predict_gauss[:, i] = res[0].squeeze()
             predict_gauss_sigma[:, i] = res[1].squeeze()
 
-        F = 0.5 * predict_rbf + 0.5 * predict_gauss - 3.0 * predict_gauss_sigma
+        F = 0.5 * predict_rbf + 0.5 * predict_gauss - 2.0 * predict_gauss_sigma
         out['F'] = F
         res = self._problem.evaluate(x, return_as_dictionary=True)
         out['G'] = res.get('G')
