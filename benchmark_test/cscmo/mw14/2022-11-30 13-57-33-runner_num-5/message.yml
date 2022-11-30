@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw14
+max_eval: 600
+runner_num: 5
+pop_size: 100
+exec_time: 5211.890713691711
+igd: 0.2865781001065525
+igd+: 0.27840228623523283
+hv: 0.0865418735599772

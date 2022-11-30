@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw3
+max_eval: 600
+runner_num: 8
+pop_size: 100
+exec_time: 3177.7788004875183
+igd: 0.011879202937121502
+igd+: 0.009330769670971609
+hv: 0.43848778102598907

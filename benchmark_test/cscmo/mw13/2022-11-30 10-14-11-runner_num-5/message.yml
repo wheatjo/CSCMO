@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw13
+max_eval: 600
+runner_num: 5
+pop_size: 100
+exec_time: 2738.418568134308
+igd: 0.09661852487073291
+igd+: 0.0958699452350085
+hv: 0.24772138654987885

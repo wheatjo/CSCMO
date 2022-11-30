@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw7
+max_eval: 600
+runner_num: 6
+pop_size: 100
+exec_time: 3352.3273181915283
+igd: 0.02374697124910275
+igd+: 0.01747010521471824
+hv: 0.2606864961103662

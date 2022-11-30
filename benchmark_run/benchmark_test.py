@@ -155,23 +155,23 @@ def run_cscmo(config, run_number):
     res = minimize(problem, algorithm, config['termination'], verbose=True, save_history=False)
     save_data_instance = SaveData(alg_name='cscmo', problem_name=problem_name,
                                   max_eval=config['termination'][1], res=res, opt_problem=config['display_problem'],
-                                  benchmark_flag=False, runner_num=run_number)
+                                  benchmark_flag=True, runner_num=run_number)
 
     save_data_instance.process(save_ani=True, save_archive=True)
 
 
 if __name__ == '__main__':
 
-    every_problem_run_total = 11
+    every_problem_run_total = 7
     # process_list = []
 
     with Pool(processes=4) as pool:
 
-        for i in range(len(setup)):
+        for i in range(1):
             test_problem_args = []
 
             for j in range(every_problem_run_total):
-                test_problem_args.append((setup[i], j))
+                test_problem_args.append((setup[i], j+4))
 
             iters = pool.starmap(run_cscmo, test_problem_args)
             for ret in iters:

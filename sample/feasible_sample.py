@@ -96,7 +96,7 @@ class FeasibleSamplingTabu(Sampling):
         alg = TabuCVII(pop_size=500, n_offsprings=500,
                        sampling=LatinHypercubeSampling().do(opt_problem, 500), niche_dist=self.niche_size)
 
-        res = minimize(opt_problem, alg, ('n_gen', 100), verbose=True)
+        res = minimize(opt_problem, alg, ('n_gen', 100), verbose=False)
         res_pop_tabu_list = res.algorithm.tabu_pop_list
         result_pop = Population.new(X=res_pop_tabu_list[res_pop_tabu_list.get('feas')].get('X'))
         Evaluator().eval(problem, result_pop)

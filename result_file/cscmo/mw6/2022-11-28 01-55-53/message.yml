@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw6
+max_eval: 600
+runner_num: 0
+pop_size: 100
+exec_time: 1065.7478473186493
+igd: 0.08080471060359473
+igd+: 0.07970129866866946
+hv: 0.09058091302840128

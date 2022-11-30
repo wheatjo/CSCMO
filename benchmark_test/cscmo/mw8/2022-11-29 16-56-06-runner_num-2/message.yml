@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw8
+max_eval: 600
+runner_num: 2
+pop_size: 100
+exec_time: 6388.884265899658
+igd: 0.13191697799788463
+igd+: 0.12308653075694655
+hv: 0.20387275166298846

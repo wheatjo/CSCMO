@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw9
+max_eval: 600
+runner_num: 3
+pop_size: 100
+exec_time: 3459.777341604233
+igd: 0.10236726797151408
+igd+: 0.0993561249013278
+hv: 0.20082411183932292

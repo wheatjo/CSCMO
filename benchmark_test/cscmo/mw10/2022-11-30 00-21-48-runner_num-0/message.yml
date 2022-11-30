@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw10
+max_eval: 600
+runner_num: 0
+pop_size: 100
+exec_time: 3973.226913690567
+igd: 0.06730985738406253
+igd+: 0.05936591399598709
+hv: 0.3890270430518254

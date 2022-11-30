@@ -1,0 +1,8 @@
+algorithm: cscmo
+opt_problem: mw1
+max_eval: 600
+pop_size: 100
+exec_time: 1874.358490228653
+igd: 0.03894497561553466
+igd+: 0.03563599593325658
+hv: 0.4189814884502215

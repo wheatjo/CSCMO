@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw4
+max_eval: 600
+runner_num: 8
+pop_size: 100
+exec_time: 4994.491254329681
+igd: 0.09463410378001724
+igd+: 0.08989440259847237
+hv: 0.6896219410645772

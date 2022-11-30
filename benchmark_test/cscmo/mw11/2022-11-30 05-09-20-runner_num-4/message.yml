@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw11
+max_eval: 600
+runner_num: 4
+pop_size: 100
+exec_time: 4556.264927148819
+igd: 0.44123740441084197
+igd+: 0.3276734484249319
+hv: 0.29797228494264594

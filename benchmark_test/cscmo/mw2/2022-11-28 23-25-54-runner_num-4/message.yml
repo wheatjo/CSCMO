@@ -1,0 +1,9 @@
+algorithm: cscmo
+opt_problem: mw2
+max_eval: 600
+runner_num: 4
+pop_size: 100
+exec_time: 3059.51358294487
+igd: 0.06396715904580587
+igd+: 0.06323067654151944
+hv: 0.3957618324278859
